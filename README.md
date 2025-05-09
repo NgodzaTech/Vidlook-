@@ -3,240 +3,175 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VidFind - Zimbabwe Videos</title>
+  <title>VidFind - YouTube Style</title>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; background: #000; color: #fff; }
-    header { background: red; padding: 10px 15px; font-size: 20px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-    nav a { color: white; text-decoration: none; margin-left: 15px; }
-    #shortsRow { display: flex; overflow-x: auto; background: #111; padding: 10px; }
-    .short-thumb { width: 120px; height: 200px; margin-right: 10px; border-radius: 10px; object-fit: cover; cursor: pointer; }
-    .video-box { background: #111; margin: 10px; padding: 10px; border-radius: 8px; }
-    .video-box img { width: 100%; border-radius: 8px; cursor: pointer; }
-    button { background: red; color: white; padding: 6px 10px; border: none; border-radius: 4px; margin-top: 8px; cursor: pointer; }
-    #fullScreenShorts { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 9999; display: none; overflow-y: scroll; scroll-snap-type: y mandatory; }
-    .short-slide { height: 100vh; scroll-snap-align: start; display: flex; align-items: center; justify-content: center; }
-    .short-slide iframe { width: 100%; height: 100%; border: none; }
-    #closeFull { position: absolute; top: 10px; right: 20px; font-size: 30px; color: white; cursor: pointer; z-index: 1000; }
+    body {
+      margin: 0;
+      font-family: Roboto, Arial, sans-serif;
+      background-color: #f9f9f9;
+    }
+
+    /* Top Navbar */
+    .navbar {
+      background-color: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-size: 22px;
+      font-weight: bold;
+      color: red;
+    }
+
+    /* Search */
+    .search-bar {
+      display: flex;
+      gap: 10px;
+    }
+    input {
+      padding: 8px;
+      width: 250px;
+    }
+    button {
+      padding: 8px 12px;
+      background-color: red;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    /* Video Grid */
+    .content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .video-card {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
+    }
+    .video-card:hover {
+      transform: scale(1.02);
+    }
+
+    .video-thumb {
+      width: 100%;
+      height: auto;
+    }
+
+    .video-info {
+      padding: 10px;
+      text-align: left;
+    }
+
+    .video-title {
+      font-size: 16px;
+      font-weight: 500;
+      margin: 5px 0;
+      color: #000;
+    }
   </style>
 </head>
 <body>
 
-<header>
-  VidFind
-  <nav>
-    <a href="#" onclick="loadVideos()">Home</a>
-    <a href="#" onclick="alert('Downloads page coming soon')">Downloads</a>
-  </nav>
-</header>
+  <div class="navbar">
+    <div class="logo">VidFind</div>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Search videos..." />
+      <button onclick="searchVideos()">Search</button>
+      <button onclick="loadShorts()">Shorts +</button>
+    </div>
+  </div>
 
-<div style="padding: 10px;">
-  <input type="text" id="searchInput" placeholder="Search Zimbabwean videos" style="width: 70%; padding: 6px;" />
-  <button onclick="searchVideos()">Search</button>
-</div>
+  <div id="videoList" class="content"></div>
 
-<!-- Horizontal Shorts -->
-<div id="shortsRow"></div>
+  <script>
+    const API_KEY = 'AIzaSyDgSa_z5jVltmWwz1vOlTFT6tkDMUfNAVY';
+    const videoListContainer = document.getElementById('videoList');
 
-<!-- Main Video Container -->
-<div id="videoList"></div>
+    async function loadTrendingVideos() {
+      videoListContainer.innerHTML = '';
+      try {
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&maxResults=12&regionCode=US&key=${API_KEY}`);
+        const data = await res.json();
+        renderVideos(data.items);
+      } catch (error) {
+        showError();
+      }
+    }
 
-<!-- Full Screen Short View -->
-<div id="fullScreenShorts">
-  <span id="closeFull" onclick="closeShorts()">&times;</span>
-  <div id="shortSlides"></div>
-</div>
+    async function searchVideos() {
+      const query = document.getElementById('searchInput').value.trim();
+      if (!query) return;
+      videoListContainer.innerHTML = '';
+      try {
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(query)}&maxResults=12&key=${API_KEY}`);
+        const data = await res.json();
+        const videos = data.items.map(item => ({
+          id: item.id.videoId,
+          snippet: item.snippet
+        }));
+        renderVideos(videos);
+      } catch (error) {
+        showError();
+      }
+    }
 
-<script>
-const apiKey = 'AIzaSyDoE4SbBMkn3kFa4M9SvIEz6mgjkuU9a5M';
-let nextPageToken = '';
-let currentQuery = 'Zimbabwe music';
+    async function loadShorts() {
+      videoListContainer.innerHTML = '';
+      try {
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&type=video&q=shorts&videoDuration=short&key=${API_KEY}`);
+        const data = await res.json();
+        const videos = data.items.map(item => ({
+          id: item.id.videoId,
+          snippet: item.snippet
+        }));
+        renderVideos(videos);
+      } catch (error) {
+        showError();
+      }
+    }
 
-function loadVideos(query = 'Zimbabwe music', append = false) {
-  fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&regionCode=ZW&pageToken=${nextPageToken}&q=${encodeURIComponent(query)}&key=${apiKey}`)
-    .then(res => res.json())
-    .then(data => {
-      nextPageToken = data.nextPageToken || '';
-      const videoList = document.getElementById('videoList');
-      if (!append) videoList.innerHTML = '';
-
-      let shortRow = '';
-      let shortSlides = '';
-
-      data.items.forEach((item, index) => {
-        const id = item.id.videoId;
-        const title = item.snippet.title;
-        const thumb = item.snippet.thumbnails.medium.url;
-
-        // Main video list
-        videoList.innerHTML += `
-          <div class="video-box">
-            <img src="${thumb}" onclick="openShort(${index})" />
-            <p>${title}</p>
-            <button onclick="window.open('https://www.y2mate.com/youtube/${id}', '_blank')">Download ↓</button>
+    function renderVideos(videos) {
+      videos.forEach(video => {
+        const videoCard = document.createElement('div');
+        videoCard.className = 'video-card';
+        videoCard.innerHTML = `
+          <img class="video-thumb" src="${video.snippet.thumbnails.medium.url}" alt="Thumbnail">
+          <div class="video-info">
+            <div class="video-title">${video.snippet.title}</div>
           </div>
         `;
-
-        // Horizontal shorts
-        if (index < 10 && !append) {
-          shortRow += `<img class="short-thumb" src="${thumb}" onclick="openShort(${index})"/>`;
-        }
-
-        shortSlides += `
-          <div class="short-slide">
-            <iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1" allowfullscreen></iframe>
-          </div>
-        `;
+        videoCard.onclick = () => {
+          window.open(`https://www.youtube.com/watch?v=${video.id}`, '_blank');
+        };
+        videoListContainer.appendChild(videoCard);
       });
+    }
 
-      if (!append) document.getElementById('shortsRow').innerHTML = shortRow;
-      document.getElementById('shortSlides').innerHTML = shortSlides;
-    });
-}
+    function showError() {
+      videoListContainer.innerHTML = `<p style="color:red;">Error loading videos. Please try again later.</p>`;
+    }
 
-function searchVideos() {
-  const input = document.getElementById('searchInput').value.trim();
-  if (input) {
-    currentQuery = input;
-    nextPageToken = '';
-    loadVideos(currentQuery);
+    loadTrendingVideos();
+  </script>
+</body>welcome to ngonisa productions
+  </html>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('Service Worker registered'));
   }
-}
-
-function openShort(index) {
-  const viewer = document.getElementById('fullScreenShorts');
-  viewer.style.display = 'block';
-  viewer.scrollTop = index * window.innerHeight;
-}
-
-function closeShorts() {
-  document.getElementById('fullScreenShorts').style.display = 'none';
-}
-
-function handleScroll() {
-  if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500 && nextPageToken) {
-    loadVideos(currentQuery, true); // load more and append
-  }
-}
-
-window.addEventListener('scroll', handleScroll);
-
-// Auto load on page start
-window.onload = () => {
-  loadVideos();
-};
 </script>
-</body>
-</html>const API_KEY = 'AIzaSyDoE4SbBMkn3kFa4M9SvIEz6mgjkuU9a5M';
-const searchBox = document.getElementById('searchBox');
-const searchBtn = document.getElementById('searchBtn');
-const videoContainer = document.getElementById('videoContainer');
-
-let query = 'trending';
-let pageToken = '';
-let isFetching = false;
-
-async function fetchVideos(newSearch = false) {
-  if (isFetching) return;
-  isFetching = true;
-  const endpoint = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(query)}&maxResults=10&pageToken=${pageToken}&key=${API_KEY}`;
-  const res = await fetch(endpoint);
-  const data = await res.json();
-  pageToken = data.nextPageToken || '';
-  renderVideos(data.items, newSearch);
-  isFetching = false;
-}
-
-function renderVideos(videos, clear = false) {
-  if (clear) videoContainer.innerHTML = '';
-  videos.forEach(video => {
-    const videoId = video.id.videoId;
-    const wrapper = document.createElement('div');
-    wrapper.className = 'video-wrapper';
-
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&playsinline=1&rel=0`;
-    iframe.allow = 'autoplay; encrypted-media';
-
-    wrapper.appendChild(iframe);
-    videoContainer.appendChild(wrapper);
-  });
-}
-
-searchBtn.onclick = () => {
-  query = searchBox.value || 'trending';
-  pageToken = '';
-  fetchVideos(true);
-};
-
-searchBox.addEventListener('keypress', e => {
-  if (e.key === 'Enter') {
-    query = searchBox.value || 'trending';
-    pageToken = '';
-    fetchVideos(true);
-  }
-});
-
-videoContainer.addEventListener('scroll', () => {
-  if (videoContainer.scrollTop + window.innerHeight >= videoContainer.scrollHeight - 500) {
-    fetchVideos();
-  }
-});
-
-window.onload = () => {
-  fetchVideos(true);
-};self.addEventListener('install', event => {
-  console.log('Service Worker installed');
-  self.skipWaiting();
-});
-
-self.addEventListener('fetch', function(event) {
-  event.respondWith(fetch(event.request));
-});body {
-  margin: 0;
-  overflow: hidden;
-  background-color: black;
-  font-family: Arial, sans-serif;
-}
-
-#controls {
-  position: fixed;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 5px;
-  z-index: 1000;
-}
-
-#searchBox {
-  padding: 10px;
-  font-size: 18px;
-  width: 70vw;
-}
-
-#searchBtn {
-  padding: 10px;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-#videoContainer {
-  height: 100vh;
-  overflow-y: scroll;
-  scroll-snap-type: y mandatory;
-}
-
-.video-wrapper {
-  height: 100vh;
-  scroll-snap-align: start;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-}
-
-iframe {
-  width: 100vw;
-  height: 100vh;
-  border: none;
-}
